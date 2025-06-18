@@ -21,10 +21,12 @@ from sklearn.cluster import KMeans
 import umap
 import numpy as np
 from sklearn.metrics import silhouette_score
+import main
+from main import KMeans as kme
+import os
 
-
-data = pd.read_pickle('./data2.pkl')
-x_train, x_test, y_train, y_test = train_test_split(data["file"], data["label"], test_size=0.2, shuffle=True, random_state=11)
+data = pd.read_pickle('./datae1.pkl')
+x_train, x_test, y_train, y_test = train_test_split(data["embed"], data["label"], test_size=0.2, shuffle=True, random_state=11)
 
 x_train = np.array(x_train)
 x_test = np.array(x_test)
@@ -37,26 +39,42 @@ y_train = y_train[:8000] #these splits arent actually necessary with DBSCAN but 
 x_test = x_test[:2000]
 y_test = y_test[:2000]
 
-nsamples, nx, ny, nrgb = x_train.shape
+'''nsamples, nx, ny, nrgb = x_train.shape
 x_trained = x_train.reshape((nsamples, nx * ny * nrgb))
 nsamples, nx, ny, nrgb = x_test.shape
-x_tested = x_test.reshape((nsamples, nx * ny * nrgb))
+x_tested = x_test.reshape((nsamples, nx * ny * nrgb))'''
 
+# File to store preprocessed data
+reduced_file = "pca_tsne_outputs.npz"
 
-pca = PCA(n_components=50)
-x_trained_ts = pca.fit_transform(x_trained)
-x_tested_ts = pca.transform(x_tested)
-#previously used PCA dim reduction, might use again so keeping it around
+if os.path.exists(reduced_file):
+    print("Loading cached PCA and t-SNE outputs")
+    data_reduced = np.load(reduced_file)
+    x_trained_ts = data_reduced["x_tsne"]
+    # Optional: x_pca = data_reduced["x_pca"] if you need it later
+else:
 
-tsne = TSNE(n_components=2, random_state=1)
-x_trained_ts = tsne.fit_transform(x_trained_ts)
+    # Step 1: PCA
+    pca = PCA(n_components=50)
+    x_pca = pca.fit_transform(x_train)
+
+    # Step 2: t-SNE
+    tsne = TSNE(n_components=2, random_state=42)
+    x_trained_ts = tsne.fit_transform(x_pca)
+
+    # Save results
+    np.savez(reduced_file, x_pca=x_pca, x_tsne=x_trained_ts)
+    print(f"Saved PCA and t-SNE outputs to {reduced_file}")
 
 #umap_model = umap.UMAP(n_components=2, random_state=42)
 #x_trained_ts = umap_model.fit_transform(x_trained_ts)
 
 k = 3  # You have 3 classes: cats, dogs, snakes
-kmeans = KMeans(n_clusters=3, random_state=42)
+kmeans = KMeans(n_clusters=8, random_state=42)
+#kmeans = kme(n_clusters=10)
+#kmeans = DBSCAN(eps= 8.5, min_samples=80,metric="cosine")
 y_pred = kmeans.fit_predict(x_trained_ts)
+
 
 print("Adjusted Rand Index (ARI):", adjusted_rand_score(y_train, y_pred))
 print("Normalized Mutual Info (NMI):", normalized_mutual_info_score(y_train, y_pred))
