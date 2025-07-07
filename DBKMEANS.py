@@ -137,27 +137,40 @@ def compute_cluster_center(cluster):
 def compute_cluster_density(cluster):
     center = compute_cluster_center(cluster)
     distances = np.linalg.norm(cluster - center, axis=1)
-    # Lower average distance means higher density
+
     return len(cluster) / (np.mean(distances) + 1e-10)
 
 def merge_clusters(clusters,cluster_centers, k):
+    iterations = 0
     while len(clusters) > k:
-        # Compute density for each cluster
+        iterations += 1
+        print(iterations, "number of iterations")
+
         densities = [compute_cluster_density(c) for c in clusters]
         sizes = [len(c) for c in clusters]
 
-        # Choose two clusters to merge: e.g., smallest size + lowest density
-        c1 = np.argmin(densities)
-        c2 = np.argmin(sizes)
+        c1 = np.argmin(sizes)
+        t1 = clusters[c1]
 
-        # Merge and update clusters
-        merged = np.vstack((clusters[c1], clusters[c2]))
-        merged_points = np.vstack((clusters[c1], clusters[c2]))
-        new_center = merged_points.mean(axis=0)
-        clusters.pop(max(c2,c1))
-        clusters.pop(min(c2,c1))
+        clusters.pop(c1)
+        sizes.pop(c1)
         cluster_centers.pop(c1)
+        c2 = np.argmin(sizes)
+        t2 = clusters[c2]
+        clusters.pop(c2)
+        sizes.pop(c2)
         cluster_centers.pop(c2)
+
+
+        merged = np.vstack((t1, t2))
+        merged_points = np.vstack((t1,t2))
+        new_center = merged_points.mean(axis=0)
+        print(len(clusters), "cluster length")
+        print(c1, "c1")
+        print(c2, "c2")
+        print(sizes, "sizes")
+        print(densities, "densities")
+
         clusters.append(merged)
         cluster_centers.append(new_center)
     return clusters,cluster_centers
@@ -172,7 +185,6 @@ def split_clusters(clusters, cluster_centers, k=2):
         print("Not enough points to split this cluster")
         return clusters, cluster_centers
 
-    # Run your KMeans on this cluster
     kmeans = kme(n_clusters=k)
     labels = kmeans.fit_predict(cluster_to_split)
 
@@ -182,7 +194,7 @@ def split_clusters(clusters, cluster_centers, k=2):
     for i in range(k):
         points = cluster_to_split[labels == i]
         if len(points) == 0:
-            continue  # avoid empty cluster
+            continue
         new_clusters.append(points)
         new_centers.append(points.mean(axis=0))
 
@@ -260,7 +272,6 @@ class KMeans:
                     if len(points) > 0:
                         self.centroids[k] = np.mean(points, axis=0)
 
-                # Step 3: Update bounds
                 centroid_shifts = np.linalg.norm(self.centroids - prev_centroids, axis=1)
                 upper_bounds += centroid_shifts[labels]
                 lower_bounds -= centroid_shifts[np.newaxis, :]
