@@ -37,7 +37,7 @@ def dataprep(dim=2):
 
     x_train = np.array(x_train)
     x_test = np.array(x_test)
-
+    x_train2=x_train
     y_train = np.array(y_train)
     y_test = np.array(y_test)
 
@@ -127,7 +127,7 @@ def k_test(iter=50,dim = 2):
         ari7 = adjusted_rand_score(y_train, y_pred)
         score7 = silhouette_score(x_trained_ts, y_pred)
 
-        results.append({
+        results2.append({
             "k": 2,
             "runtime_sec": elapsed_time,
             "adjusted_rand_index": ari,
@@ -252,7 +252,7 @@ def dbk_test(iter=50,dim=2):
         ari = adjusted_rand_score(y_train, y_pred)
         score = silhouette_score(x_trained_ts, y_pred)
 
-        results.append({
+        results2.append({
                 "k": 2,
                 "runtime_sec": elapsed_time,
                 "adjusted_rand_index": ari,
@@ -264,8 +264,8 @@ def dbk_test(iter=50,dim=2):
 
 ##k_test()
 k_test(iter=50)
-k_alg_test(iter=50)
-k_alg_test(iter=50,dim=3)
-k_init_test(iter=50)
-k_init_test(iter=50,maxit=1)
+#k_alg_test(iter=3)
+#k_alg_test(iter=50,dim=3)
+#k_init_test(iter=50)
+#k_init_test(iter=50,maxit=1)
 
