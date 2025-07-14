@@ -29,7 +29,7 @@ class DBKMEANS:
 
         clusters = [np.array(cluster) for cluster in clusters]
 
-        cluster_centers = []
+        clusterCenters = []
         cluster_sizes = []
         m = len(clusters)
         k = kclust
@@ -37,16 +37,16 @@ class DBKMEANS:
         for cluster in clusters:
             center = cluster.mean(axis=0)
             size = len(cluster)
-            cluster_centers.append(center)
+            clusterCenters.append(center)
             cluster_sizes.append(size)
-        print(len(cluster_centers))
+        print(len(clusterCenters))
         if m > k:
-            clusters, cluster_centers = merge_clusters(clusters, cluster_centers, k)
+            clusters, clusterCenters = merge_clusters(clusters, clusterCenters, k)
         elif m < k:
-            clusters, cluster_centers = split_clusters(clusters, cluster_centers, k)
+            clusters, clusterCenters = split_clusters(clusters, clusterCenters, k)
 
-        print(len(cluster_centers))
-        return np.array(cluster_centers)
+        print(len(clusterCenters))
+        return np.array(clusterCenters)
 
 
     def expand_neighbours(self, index, data_points, point, eps, minpts, cluster, clusters, neighbours, labels, visited,
@@ -134,19 +134,20 @@ def insert(root, point, index, k, depth=0):
 def compute_cluster_center(cluster):
     return np.mean(cluster, axis=0)
 
-def compute_cluster_density(cluster):
+def getDense(cluster):
     center = compute_cluster_center(cluster)
     distances = np.linalg.norm(cluster - center, axis=1)
 
     return len(cluster) / (np.mean(distances) + 1e-10)
 
-def merge_clusters(clusters,cluster_centers, k):
+def distancee(point, data):
+    return np.sqrt(np.sum((point - data)**2, axis=1))
+def merge_clusters(clusters,clusterCenters, k):
     iterations = 0
     while len(clusters) > k:
         iterations += 1
         print(iterations, "number of iterations")
 
-        densities = [compute_cluster_density(c) for c in clusters]
         sizes = [len(c) for c in clusters]
 
         c1 = np.argmin(sizes)
@@ -154,59 +155,45 @@ def merge_clusters(clusters,cluster_centers, k):
 
         clusters.pop(c1)
         sizes.pop(c1)
-        cluster_centers.pop(c1)
-        c2 = np.argmin(sizes)
+        t2 = clusterCenters.pop(c1)
+        dists = distancee(t2,clusterCenters)
+
+        c2 = np.argmin(dists)
         t2 = clusters[c2]
         clusters.pop(c2)
         sizes.pop(c2)
-        cluster_centers.pop(c2)
+        clusterCenters.pop(c2)
 
 
         merged = np.vstack((t1, t2))
         merged_points = np.vstack((t1,t2))
         new_center = merged_points.mean(axis=0)
-        print(len(clusters), "cluster length")
-        print(c1, "c1")
-        print(c2, "c2")
-        print(sizes, "sizes")
-        print(densities, "densities")
-
         clusters.append(merged)
-        cluster_centers.append(new_center)
-    return clusters,cluster_centers
+        clusterCenters.append(new_center)
+    return clusters,clusterCenters
 
-def split_clusters(clusters, cluster_centers, k=2):
-    densities = [compute_cluster_density(c) for c in clusters]
+def split_clusters(clusters, clusterCenters, k=2):
+    densities = [getDense(c) for c in clusters]
     idx = np.argmin(densities)
-    cluster_to_split = clusters.pop(idx)
-    cluster_centers.pop(idx)
+    clustToSplit = clusters.pop(idx)
+    clusterCenters.pop(idx)
 
-    if len(cluster_to_split) < k:
-        print("Not enough points to split this cluster")
-        return clusters, cluster_centers
+    if len(clustToSplit) < k:
+        return clusters, clusterCenters
 
     kmeans = kme(n_clusters=k)
-    labels = kmeans.fit_predict(cluster_to_split)
+    labels = kmeans.fit_predict(clustToSplit)
 
-    # Form new clusters
-    new_clusters = []
-    new_centers = []
+    newClsuters = []
+    newCenters = []
     for i in range(k):
-        points = cluster_to_split[labels == i]
+        points = clustToSplit[labels == i]
         if len(points) == 0:
             continue
-        new_clusters.append(points)
-        new_centers.append(points.mean(axis=0))
+        newClsuters.append(points)
+        newCenters.append(points.mean(axis=0))
 
-    # Add new splits
-    print("hi")
-    print(len(cluster_centers))
-    print(len(clusters))
-    clusters.extend(new_clusters)
-    cluster_centers.extend(new_centers)
-    print(len(cluster_centers))
-
-    return new_clusters, new_centers
+    return newClsuters, newCenters
 
 class KMeans:
     def __init__(self, n_clusters=3, max_iter=500, tol=1e-10, init='kmeans++', alg='lloyd',eps=8.5, minpts=120):
@@ -225,79 +212,70 @@ class KMeans:
             self.centroids = DBKMEANS.fit(data_points=X_train, eps=self.eps, minpts=self.minpts,kclust=self.n_clusters)
 
             for iteration in range(self.max_iter):
-                prev_centroids = self.centroids.copy()
+                prevcentroids = self.centroids.copy()
 
-                # Vectorized distance computation
-                distances = np.linalg.norm(X_train[:, np.newaxis, :] - self.centroids[np.newaxis, :, :], axis=2)
+                distances = distance_matrix(X_train, self.centroids)
                 labels = np.argmin(distances, axis=1)
 
                 for i in range(self.n_clusters):
-                    points_in_cluster = X_train[labels == i]
-                    if len(points_in_cluster) > 0:
-                        self.centroids[i] = points_in_cluster.mean(axis=0)
+                    points = X_train[labels == i]
+                    if len(points) > 0:
+                        self.centroids[i] = points.mean(axis=0)
 
-                shifts = np.linalg.norm(self.centroids - prev_centroids, axis=1)
-                if np.all(shifts <= self.tol) and  uncap == False:
-                    print("it = ",iteration)
+                shifts = np.linalg.norm(self.centroids - prevcentroids, axis=1)
+                if np.all(shifts <= self.tol):
+                    print(f"Lloyd's converged in {iteration + 1} iterations")
                     break
-            print("maxx")
+
+
         else:
-            ddd = DBKMEANS()
-            self.centroids = ddd.fit(data_points=X_train,eps=8.4,minpts=120,kclust=self.n_clusters)
+            dbk = DBKMEANS()
+            self.centroids = dbk.fit(data_points=X_train,eps=3.4,minpts=5,kclust=self.n_clusters)
             labels = np.zeros(n_samples, dtype=int)
             upper_bounds = np.full(n_samples, np.inf)
-            lower_bounds = np.zeros((n_samples, self.n_clusters))
 
             for it in range(self.max_iter):
-                prev_centroids = self.centroids.copy()
+                prevcentroids = self.centroids.copy()
 
+                centdist = distance_matrix(self.centroids, self.centroids)
+                np.fill_diagonal(centdist, np.inf)
+                s = 0.5 * np.min(centdist, axis=1)
 
-                centroid_distances = distance_matrix(self.centroids, self.centroids)
-                np.fill_diagonal(centroid_distances, np.inf)
-                s = 0.5 * np.min(centroid_distances, axis=1)
+                toupdate = (upper_bounds > s[labels])
+                if np.any(toupdate):
+                    distances = distance_matrix(X_train[toupdate], self.centroids)
+                    newLabels = np.argmin(distances, axis=1)
+                    upper_bounds[toupdate] = distances[np.arange(len(newLabels)), newLabels]
 
-
-
-                needs_update = (upper_bounds > s[labels])
-                if np.any(needs_update):
-                    distances = distance_matrix(X_train[needs_update], self.centroids)
-                    new_labels = np.argmin(distances, axis=1)
-                    upper_bounds[needs_update] = distances[np.arange(len(new_labels)), new_labels]
-                    lower_bounds[needs_update] = distances
-
-                    labels[needs_update] = new_labels
+                    labels[toupdate] = newLabels
 
                 for k in range(self.n_clusters):
                     points = X_train[labels == k]
                     if len(points) > 0:
                         self.centroids[k] = np.mean(points, axis=0)
 
-                centroid_shifts = np.linalg.norm(self.centroids - prev_centroids, axis=1)
+                # Step 3: Update bounds
+                centroid_shifts = np.linalg.norm(self.centroids - prevcentroids, axis=1)
                 upper_bounds += centroid_shifts[labels]
-                lower_bounds -= centroid_shifts[np.newaxis, :]
-                lower_bounds = np.maximum(lower_bounds, 0)
 
-                if np.max(centroid_shifts) <= self.tol and uncap == False:
+                if np.max(centroid_shifts) <= self.tol:
                     print(f"Converged in {it + 1} iterations")
                     break
 
-
-
     def evaluate(self, X):
         centroids = []
-        centroid_ids = []
+        centroidz = []
         for x in X:
             dist = distance(x, self.centroids)
-            centroid_id = np.argmin(dist)
-            centroids.append(self.centroids[centroid_id])
-            centroid_ids.append(centroid_id)
-        return centroids, centroid_ids
+            centroid = np.argmin(dist)
+            centroids.append(self.centroids[centroid])
+            centroidz.append(centroid)
+        return centroids, centroidz
 
     def fit_predict(self, X):
         self.fit(X)
         _, cluster_indices = self.evaluate(X)
         return np.array(cluster_indices)
-
 def distance(point, data):
     return np.sqrt(np.sum((point - data)**2, axis=1))
 

@@ -4,18 +4,15 @@ def distance(point, data):
     return np.sqrt(np.sum((point - data)**2, axis=1))
 
 def distance_matrix(X, Y):
-    # Fast Euclidean distance matrix: ||X - Y||^2
     return np.linalg.norm(X[:, np.newaxis, :] - Y[np.newaxis, :, :], axis=2)
 
 def initialize_centroids_kmeans_pp(X, k):
     nsamples, _ = X.shape
     centroids = np.empty((k, X.shape[1]))
 
-    # Randomly choose the first centroid
     c1 = np.random.randint(nsamples)
     centroids[0] = X[c1]
 
-    # Init distance squared array
     closestdistSq = np.full(nsamples, np.inf)
 
     for c_id in range(1, k):
@@ -39,9 +36,10 @@ class KMeans:
         self.alg = alg
 
     def fit(self, X_train):
-        uncap = False
         nsamples, nfeatures = X_train.shape
+
         if self.alg == 'lloyd':
+
             if self.init == 'kmeans++':
                 self.centroids = initialize_centroids_kmeans_pp(X_train, self.n_clusters)
             else:
@@ -51,21 +49,21 @@ class KMeans:
             for iteration in range(self.max_iter):
                 prevcentroids = self.centroids.copy()
 
-                # Vectorized distance computation
-                distances = np.linalg.norm(X_train[:, np.newaxis, :] - self.centroids[np.newaxis, :, :], axis=2)
+                distances = distance_matrix(X_train, self.centroids)
                 labels = np.argmin(distances, axis=1)
 
                 for i in range(self.n_clusters):
-                    cpoints = X_train[labels == i]
-                    if len(cpoints) > 0:
-                        self.centroids[i] = cpoints.mean(axis=0)
+                    points = X_train[labels == i]
+                    if len(points) > 0:
+                        self.centroids[i] = points.mean(axis=0)
 
                 shifts = np.linalg.norm(self.centroids - prevcentroids, axis=1)
-                if np.all(shifts <= self.tol) and  uncap == False:
-                    print("it = ",iteration)
+                if np.all(shifts <= self.tol):
+                    print(f"Lloyd's converged in {iteration + 1} iterations")
                     break
-            print("maxx")
-        else:
+
+
+        if self.alg == 'UB':
             if self.init == 'kmeans++':
                 self.centroids = initialize_centroids_kmeans_pp(X_train,self.n_clusters)
             else:
@@ -73,7 +71,7 @@ class KMeans:
 
             labels = np.zeros(nsamples, dtype=int)
             upper_bounds = np.full(nsamples, np.inf)
-            lower_bounds = np.zeros((nsamples, self.n_clusters))
+
 
             for it in range(self.max_iter):
                 prevcentroids = self.centroids.copy()
@@ -90,7 +88,7 @@ class KMeans:
                     distances = distance_matrix(X_train[toupdate], self.centroids)
                     newLabels = np.argmin(distances, axis=1)
                     upper_bounds[toupdate] = distances[np.arange(len(newLabels)), newLabels]
-                    lower_bounds[toupdate] = distances
+
 
                     labels[toupdate] = newLabels
 
@@ -102,24 +100,20 @@ class KMeans:
                 # Step 3: Update bounds
                 centroid_shifts = np.linalg.norm(self.centroids - prevcentroids, axis=1)
                 upper_bounds += centroid_shifts[labels]
-                lower_bounds -= centroid_shifts[np.newaxis, :]
-                lower_bounds = np.maximum(lower_bounds, 0)
 
-                if np.max(centroid_shifts) <= self.tol and uncap == False:
+                if np.max(centroid_shifts) <= self.tol :
                     print(f"Converged in {it + 1} iterations")
                     break
 
-
-
     def evaluate(self, X):
         centroids = []
-        centroid_ids = []
+        centroidz = []
         for x in X:
-            dist = distance(x, self.centroids)
-            centroid_id = np.argmin(dist)
-            centroids.append(self.centroids[centroid_id])
-            centroid_ids.append(centroid_id)
-        return centroids, centroid_ids
+            dist = np.linalg.norm(x - self.centroids, axis=1)
+            centroid = np.argmin(dist)
+            centroids.append(self.centroids[centroid])
+            centroidz.append(centroid)
+        return centroids, centroidz
 
     def fit_predict(self, X):
         self.fit(X)
