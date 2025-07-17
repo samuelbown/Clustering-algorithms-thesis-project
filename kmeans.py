@@ -97,13 +97,73 @@ class KMeans:
                     if len(points) > 0:
                         self.centroids[k] = np.mean(points, axis=0)
 
-                # Step 3: Update bounds
+
                 centroid_shifts = np.linalg.norm(self.centroids - prevcentroids, axis=1)
                 upper_bounds += centroid_shifts[labels]
 
                 if np.max(centroid_shifts) <= self.tol :
                     print(f"Converged in {it + 1} iterations")
                     break
+
+        if self.alg == 'elkan':
+            if self.init == 'kmeans++':
+                self.centroids = initialize_centroids_kmeans_pp(X_train, self.n_clusters)
+            else:
+                minimum, maximum = np.min(X_train, axis=0), np.max(X_train, axis=0)
+                self.centroids = np.array([np.random.uniform(minimum, maximum) for _ in range(self.n_clusters)])
+
+            labels = np.zeros(nsamples, dtype=int)
+            upper_bounds = np.full(nsamples, np.inf)
+            lower_bounds = np.zeros((nsamples, self.n_clusters))
+
+            for it in range(self.max_iter):
+                prevcentroids = self.centroids.copy()
+
+                centroid_dists = distance_matrix(self.centroids, self.centroids)
+                np.fill_diagonal(centroid_dists, np.inf)
+                s = 0.5 * np.min(centroid_dists, axis=1)
+
+                for i in range(nsamples):
+                    c = labels[i]
+
+                    if upper_bounds[i] <= s[c]:
+                        continue
+
+
+                    for j in range(self.n_clusters):
+                        if j == c:
+                            continue
+                        if upper_bounds[i] <= lower_bounds[i, j]:
+                            continue
+                        if upper_bounds[i] <= 0.5 * centroid_dists[c, j]:
+                            continue
+
+
+                        dist = np.linalg.norm(X_train[i] - self.centroids[j])
+                        lower_bounds[i, j] = dist
+
+                        if dist < upper_bounds[i]:
+                            c = j
+                            upper_bounds[i] = dist
+
+                    labels[i] = c
+
+                for j in range(self.n_clusters):
+                    points = X_train[labels == j]
+                    if len(points) > 0:
+                        self.centroids[j] = points.mean(axis=0)
+
+                centroid_shifts = np.linalg.norm(self.centroids - prevcentroids, axis=1)
+                for i in range(nsamples):
+                    c = labels[i]
+                    upper_bounds[i] = np.linalg.norm(X_train[i] - self.centroids[c]) + centroid_shifts[c]
+                    lower_bounds[i] = np.maximum(0.0, lower_bounds[i] - centroid_shifts)
+
+                if np.max(centroid_shifts) <= self.tol:
+                    print(it)
+                    break
+
+
 
     def evaluate(self, X):
         centroids = []
