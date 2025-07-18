@@ -44,7 +44,7 @@ for subdir in os.listdir(data_path):
                 data["label"].append(6)
             case "Sheep":
                 data["label"].append(7)
-with open("data2.pkl", "wb") as fp:
+with open("data.pkl", "wb") as fp:
     pickle.dump(data, fp)
 
 
